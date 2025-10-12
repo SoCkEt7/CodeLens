@@ -1,27 +1,32 @@
 # CodeLens
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-v14+-green.svg)](https://nodejs.org/)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/yourusername/codelens)
 
-**CodeLens** is a powerful real-time file monitoring utility for developers, providing immediate visibility into file changes within your project. Specially optimized for React and Symfony projects, it helps you track modifications as they happen.
+**CodeLens** is a powerful real-time file monitoring utility with a beautiful terminal UI, providing immediate visibility into file changes with colorful diffs, deltas, and interactive controls. Track modifications as they happen with an elegant interface designed for developers.
 
-![CodeLens Preview](https://via.placeholder.com/800x400?text=CodeLens+Preview)
+## Features
 
-## 🔍 Features
+- **Beautiful Terminal UI** - Rich, colorful interface with glassomorphic design
+- **Real-time Diff Visualization** - See exactly what changed with color-coded diffs
+- **Delta Tracking** - Track lines added/deleted with visual indicators
+- **Interactive Menu** - Ignore/accept files with keyboard shortcuts
+- **Smart Filtering** - Automatically ignores node_modules, vendor, dist, etc.
+- **File Type Icons** - Automatic categorization (JS, PHP, CSS, etc.)
+- **Git Integration** - Git-aware change detection when in a repository
+- **Activity Log** - See all file changes in real-time
+- **Statistics Dashboard** - Live stats for modified files and line changes
+- **Animated Status** - Smooth animations and loading indicators
 
-- **Real-time monitoring** of file modifications with size changes
-- **Smart filtering** that ignores common directories (vendor, node_modules, cache, etc.)
-- **Automatic categorization** of files by type (React, PHP, Twig, Config, Style)
-- **Color-coded output** for better readability
-- **Lightweight** with minimal resource usage
-- **React and Symfony optimized** with specific directory configurations
+## Requirements
 
-## 📋 Requirements
+- Node.js v14 or higher
+- pnpm (will be installed automatically if missing)
+- Terminal with 256 color support
+- Git (optional, for enhanced diff features)
 
-- Bash shell environment
-- Core Unix utilities: find, stat, awk, watch, column
-- Git (for installation)
-
-## 🚀 Installation
+## Installation
 
 ### Quick Install
 
@@ -36,170 +41,120 @@ cd codelens
 ./install.sh
 ```
 
-### Manual Installation
+The installer will:
+1. Check for Node.js and pnpm
+2. Install dependencies
+3. Link CodeLens globally
+4. Make it available as `codelens` command
 
-If you prefer to install manually:
+### Local Development
 
-1. Create the script file in your bin directory:
+To run without installing:
 
 ```bash
-mkdir -p ~/bin
-
-cat > ~/bin/codelens-script.sh << 'EOF'
-#!/bin/bash
-find . -type f \
-  -not -path "*/\.*" \
-  -not -path "*/vendor/*" \
-  -not -path "*/node_modules/*" \
-  -not -path "*/var/cache/*" \
-  -not -path "*/var/log/*" \
-  -not -path "*/public/build/*" \
-  -not -path "*/dist/*" \
-  -not -name "*.min.js" \
-  -not -name "*.map" \
-  -not -name "*.lock" \
-  -mmin -60 \
-  -exec stat --format="%Y %s %n" {} \; 2>/dev/null | \
-  sort -nr | head -15 | \
-  awk '{ 
-    size=$2/1024; 
-    time=strftime("%H:%M:%S", $1); 
-    file=substr($0, index($0,$3));
-    if (file ~ /\.js$|\.jsx$|\.ts$|\.tsx$/) { type="React" } 
-    else if (file ~ /\.php$/) { type="PHP" } 
-    else if (file ~ /\.twig$/) { type="Twig" } 
-    else if (file ~ /\.yaml$|\.yml$/) { type="Config" }
-    else if (file ~ /\.css$|\.scss$/) { type="Style" }
-    else { type="" }
-    printf "%-8s  %7.2f KB  %-7s  %s\n", time, size, type, file 
-  }' | column -t
-EOF
-
-chmod +x ~/bin/codelens-script.sh
+cd codelens
+pnpm install
+node index.js
 ```
 
-2. Add the alias to your shell configuration file:
+## Usage
+
+After installation, navigate to any project directory and run:
 
 ```bash
-echo 'alias codelens="watch --color -n 0.5 ~/bin/codelens-script.sh"' >> ~/.bashrc
-```
-
-3. Apply changes:
-
-```bash
-source ~/.bashrc
-```
-
-## 🛠️ Usage
-
-After installation, simply run:
-
-```bash
+cd /path/to/your/project
 codelens
 ```
 
-This will display the 15 most recently modified files in your current directory, updating every 0.5 seconds.
-
-### Output Example
+### Interface Overview
 
 ```
-TIME      SIZE KB   TYPE     PATH
-14:15:27  8.02 KB   React    ./src/components/App.jsx
-14:14:02  3.80 KB   PHP      ./backend/index.php
-14:13:37  20.74 KB  Twig     ./backend/templates/dashboard.twig
-14:12:28  3.60 KB   Style    ./src/styles/main.css
-14:11:50  2.28 KB   Config   ./config/routes.yaml
+┌─────────────────────────────────────────────────────────────┐
+│              CodeLens - Real-time File Monitoring            │
+├────────────┬────────────┬────────────┬────────────┐
+│ Modified   │ Lines      │ Lines      │ Status     │
+│ Files: 5   │ Added: +42 │ Deleted: 8 │ ● WATCHING │
+├────────────┴────────────┴────────────┴────────────┤
+│ Recent Changes          │ Diff Preview            │
+│ ● [JS] 14:30 +5 -2      │ + Added lines (green)   │
+│ ● [PHP] 14:28 +12 -3    │ - Deleted lines (red)   │
+│ ● [CSS] 14:25 +8 -1     │ ~ Changed context       │
+├─────────────────────────┴─────────────────────────┤
+│ Activity Log                                      │
+│ [14:30:15] Modified: src/app.js +5 -2            │
+│ [14:28:42] Modified: index.php +12 -3            │
+└───────────────────────────────────────────────────┘
 ```
 
-## ⚙️ Customization
+### Keyboard Shortcuts
 
-You can customize CodeLens by editing the script at `~/bin/codelens-script.sh`:
+| Key | Action |
+|-----|--------|
+| `↑` / `k` | Move up in file list |
+| `↓` / `j` | Move down in file list |
+| `Enter` | View detailed diff |
+| `i` | Ignore selected file |
+| `a` | Accept/restore file |
+| `c` | Clear all changes |
+| `r` | Refresh view |
+| `?` | Toggle help menu |
+| `q` / `Ctrl+C` | Quit |
 
-- Change the refresh rate: Modify `-n 0.5` in your alias to a different interval
-- Adjust the number of files shown: Change `head -15` to show more or fewer files
-- Add additional file types: Extend the awk conditional statement with new patterns
+### Features in Detail
 
-## 🧩 Integration
+**Color-coded Diffs:**
+- Green lines = Added
+- Red lines = Deleted
+- Cyan headers = Change context
+- Gray lines = Unchanged context
 
-### Symfony Integration
+**File Status:**
+- Green ● = Active/tracked
+- Red ● = Ignored
+- Blue +N = Lines added
+- Red -N = Lines deleted
 
-CodeLens includes a Symfony command for integration with your Symfony applications:
+## Customization
 
-```php
-// src/Command/CodeLensCommand.php
-<?php
+You can customize CodeLens by editing `index.js`:
 
-namespace App\Command;
+- **Watch patterns**: Modify `watchPatterns` array to add/remove file types
+- **Ignore patterns**: Update `ignorePatterns` to exclude specific directories
+- **Colors**: Change the color scheme in the UI components
+- **Stats display**: Adjust the stats grid layout
+- **Max modifications**: Change the history limit (default: 50 files)
 
-use Symfony\Component\Console\Attribute\AsCommand;
-use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
+Example customization:
 
-#[AsCommand(
-    name: 'app:codelens',
-    description: 'List recently modified files',
-)]
-class CodeLensCommand extends Command
-{
-    protected function execute(InputInterface $input, OutputInterface $output): int
-    {
-        $io = new SymfonyStyle($input, $output);
-        
-        $io->title('Recently Modified Files');
-        
-        // Execute the CodeLens script
-        $result = shell_exec('~/bin/codelens-script.sh');
-        
-        $io->text($result);
-        
-        return Command::SUCCESS;
-    }
-}
+```javascript
+// Add new file types to watch
+const watchPatterns = [
+  '**/*.{js,jsx,ts,tsx,php,twig,css,scss,html,json,yaml,yml,md}',
+  '**/*.{py,rb,go,rs}',  // Add Python, Ruby, Go, Rust
+];
+
+// Add custom ignore patterns
+const ignorePatterns = [
+  '**/node_modules/**',
+  '**/vendor/**',
+  '**/my-custom-dir/**',  // Your custom exclusion
+];
 ```
 
-### React Integration
-
-The frontend demo includes a React component for displaying file changes:
-
-```jsx
-// See /frontend/src/components/CodeLens.jsx for full implementation
-import React, { useState, useEffect } from 'react';
-
-const CodeLens = () => {
-  const [files, setFiles] = useState([]);
-  
-  // Component implementation...
-  
-  return (
-    <div className="codelens">
-      <h2>Recent File Changes</h2>
-      <table>
-        {/* Table structure */}
-      </table>
-    </div>
-  );
-};
-
-export default CodeLens;
-```
-
-## 🗑️ Uninstallation
+## Uninstallation
 
 To remove CodeLens from your system:
 
 ```bash
-# Using the uninstall script
-./uninstall.sh
+# Using the install script
+./install.sh remove
 
 # Or manually
-rm -f ~/bin/codelens-script.sh
-sed -i '/alias codelens=/d' ~/.bashrc
-source ~/.bashrc
+cd /path/to/codelens
+pnpm unlink --global
 ```
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Here's how you can contribute:
 
@@ -209,15 +164,32 @@ Contributions are welcome! Here's how you can contribute:
 4. Push to the branch: `git push origin feature-name`
 5. Open a pull request
 
-## 📄 License
+## Troubleshooting
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+**Q: CodeLens doesn't show any files**
+A: Make sure you're in a directory with files that match the watch patterns. Check the activity log for errors.
 
-## 🙏 Acknowledgements
+**Q: Colors don't display properly**
+A: Ensure your terminal supports 256 colors. Try a modern terminal like iTerm2, Alacritty, or Windows Terminal.
 
-- Inspired by the need for better real-time file tracking in development workflows
-- Thanks to all contributors and the open source community
+**Q: High CPU usage**
+A: CodeLens watches many files. You can reduce load by adding more patterns to `ignorePatterns`.
+
+**Q: Git diff not working**
+A: CodeLens falls back to file snapshots if not in a git repo. This is normal behavior.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Credits / Crédits
+
+**EN:** Made with ♥ by [Antonin Nvh](https://olive.click)
+**FR:** Créé avec ♥ par [Antonin Nvh](https://olive.click)
 
 ---
 
-Made with ❤️ for developers. Happy coding!
+**CodeLens** - A beautiful terminal UI for real-time file monitoring
+**CodeLens** - Une interface terminal élégante pour la surveillance de fichiers en temps réel
+
+© 2025 Antonin Nvh. All rights reserved. | Tous droits réservés.

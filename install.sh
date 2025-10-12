@@ -5,12 +5,11 @@
 
 # ---------------------------------------------------------
 # USAGE:
-#   ./codelens.sh          - Run in current directory
-#   ./codelens.sh install  - Install globally as 'codelens'
-#   ./codelens.sh remove   - Remove global installation
+#   ./install.sh          - Install CodeLens globally
+#   ./install.sh remove   - Remove global installation
 # ---------------------------------------------------------
 
-VERSION="1.0.0"
+VERSION="2.0.0"
 
 # Print banner
 print_banner() {
@@ -41,94 +40,194 @@ monitor_files() {
     -mmin -60 \
     -exec stat --format="%Y %s %n" {} \; 2>/dev/null | \
     sort -nr | head -15 | \
-    awk '{ 
+    awk 'BEGIN {
+      # ANSI Color Codes
+      C_RESET = "\033[0m";
+      C_TIME = "\033[0;90m";
+      C_SIZE = "\033[0;33m";
+      C_REACT = "\033[1;36m";
+      C_PHP = "\033[1;35m";
+      C_TWIG = "\033[1;32m";
+      C_CONFIG = "\033[1;31m";
+      C_STYLE = "\033[1;34m";
+      C_OTHER = "\033[0;37m";
+      C_FILE = "\033[0m";
+    }
+    { 
       size=$2/1024; 
       time=strftime("%H:%M:%S", $1); 
       file=substr($0, index($0,$3));
-      if (file ~ /\.js$|\.jsx$|\.ts$|\.tsx$/) { type="React" } 
-      else if (file ~ /\.php$/) { type="PHP" } 
-      else if (file ~ /\.twig$/) { type="Twig" } 
-      else if (file ~ /\.yaml$|\.yml$/) { type="Config" }
-      else if (file ~ /\.css$|\.scss$/) { type="Style" }
-      else { type="" }
-      printf "%-8s  %7.2f KB  %-7s  %s\n", time, size, type, file 
+      color=C_OTHER;
+      type="Other";
+      if (file ~ /\.js$|\.jsx$|\.ts$|\.tsx$/) { type="React"; color=C_REACT; } 
+      else if (file ~ /\.php$/) { type="PHP"; color=C_PHP; } 
+      else if (file ~ /\.twig$/) { type="Twig"; color=C_TWIG; } 
+      else if (file ~ /\.yaml$|\.yml$/) { type="Config"; color=C_CONFIG; }
+      else if (file ~ /\.css$|\.scss$/) { type="Style"; color=C_STYLE; }
+      
+      # Print formatted and colored output
+      printf C_TIME "%-8s  " C_SIZE "%7.2f KB  " color "%-7s  " C_FILE "%s" C_RESET "\n", time, size, type, file;
     }' | column -t
+}
+
+# Cleanup function
+cleanup_previous() {
+  echo "Cleaning up previous CodeLens installations..."
+
+  # Get pnpm global bin directory
+  if command -v pnpm >/dev/null 2>&1; then
+    PNPM_BIN=$(pnpm root -g 2>/dev/null)/../../bin
+
+    # Remove previous global link
+    if [ -L "$PNPM_BIN/codelens" ]; then
+      echo "  Removing previous pnpm link..."
+      rm -f "$PNPM_BIN/codelens"
+    fi
+
+    # Try to unlink if package exists
+    pnpm unlink --global codelens 2>/dev/null || true
+  fi
+
+  # Check for npm global installations
+  if command -v npm >/dev/null 2>&1; then
+    NPM_BIN=$(npm bin -g 2>/dev/null)
+    if [ -f "$NPM_BIN/codelens" ] || [ -L "$NPM_BIN/codelens" ]; then
+      echo "  Removing previous npm installation..."
+      npm uninstall -g codelens 2>/dev/null || true
+    fi
+  fi
+
+  # Remove from common bin locations
+  for BIN_DIR in /usr/local/bin ~/.local/bin; do
+    if [ -L "$BIN_DIR/codelens" ] || [ -f "$BIN_DIR/codelens" ]; then
+      echo "  Removing $BIN_DIR/codelens..."
+      rm -f "$BIN_DIR/codelens"
+    fi
+  done
+
+  # Clean up any shell aliases in common rc files
+  for RC_FILE in ~/.bashrc ~/.zshrc ~/.profile; do
+    if [ -f "$RC_FILE" ]; then
+      if grep -q "alias codelens=" "$RC_FILE" 2>/dev/null; then
+        echo "  Removing codelens alias from $RC_FILE..."
+        sed -i.bak '/alias codelens=/d' "$RC_FILE"
+      fi
+    fi
+  done
+
+  echo "  Cleanup complete!"
+  echo
 }
 
 # Install function
 install_codelens() {
   print_banner
-  
-  echo "Installing CodeLens..."
-  
-  # Create bin directory if it doesn't exist
-  mkdir -p ~/bin
-  
-  # Copy this script to bin directory
-  cp "$0" ~/bin/codelens-script.sh
-  chmod +x ~/bin/codelens-script.sh
-  
-  # Create or update bashrc to add alias
-  if grep -q "alias codelens" ~/.bashrc; then
-    # Remove existing alias
-    sed -i '/alias codelens=/d' ~/.bashrc
-  fi
-  
-  # Add new alias
-  echo 'alias codelens="watch --color -n 0.5 ~/bin/codelens-script.sh"' >> ~/.bashrc
-  
-  # Ensure ~/bin is in PATH
-  if ! grep -q "PATH=.*~/bin" ~/.bashrc; then
-    echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
-  fi
-  
+
+  echo "Installing CodeLens v$VERSION..."
   echo
-  echo -e "\033[1;32mInstallation complete!\033[0m"
+
+  # Check for Node.js
+  if ! command -v node >/dev/null 2>&1; then
+    echo -e "\033[1;31mError: Node.js is not installed!\033[0m"
+    echo "Please install Node.js (v14+) from https://nodejs.org/"
+    exit 1
+  fi
+
+  # Check for pnpm
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "pnpm not found. Installing pnpm..."
+    npm install -g pnpm
+  fi
+
+  # Get script directory
+  SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+  # Cleanup previous installations
+  cleanup_previous
+
+  # Install dependencies
+  echo "Installing dependencies with pnpm..."
+  cd "$SCRIPT_DIR"
+  pnpm install
+
+  if [ $? -ne 0 ]; then
+    echo -e "\033[1;31mError: Failed to install dependencies\033[0m"
+    exit 1
+  fi
+
+  # Make executable
+  chmod +x "$SCRIPT_DIR/index.js"
+
+  # Create global link
   echo
-  echo "You can now use the 'codelens' command in any directory."
-  echo "If the command is not working, try opening a new terminal or run: source ~/.bashrc"
+  echo "Creating global link..."
+  pnpm link --global
+
+  if [ $? -ne 0 ]; then
+    echo -e "\033[1;31mError: Failed to create global link\033[0m"
+    exit 1
+  fi
+
+  echo
+  echo -e "\033[1;32m✓ Installation complete!\033[0m"
+  echo
+  echo -e "\033[1;36mCodeLens v$VERSION is now installed globally\033[0m"
+  echo
+
+  # Test installation
+  echo "Testing installation..."
+  if command -v codelens >/dev/null 2>&1; then
+    echo -e "\033[1;32m✓ codelens command is available\033[0m"
+    CODELENS_PATH=$(which codelens)
+    echo "  Installed at: $CODELENS_PATH"
+  else
+    echo -e "\033[1;33m⚠ Warning: codelens command not found in PATH\033[0m"
+    echo "  You may need to restart your shell or add pnpm bin to PATH"
+    if command -v pnpm >/dev/null 2>&1; then
+      PNPM_BIN=$(pnpm root -g 2>/dev/null)/../../bin
+      echo "  Try adding to your shell rc file:"
+      echo "    export PATH=\"$PNPM_BIN:\$PATH\""
+    fi
+  fi
+
   echo
   echo -e "\033[1;33mUsage:\033[0m"
   echo "  cd /path/to/your/project"
   echo "  codelens"
   echo
+  echo -e "\033[1;33mKeyboard Shortcuts:\033[0m"
+  echo "  ↑↓       - Navigate files"
+  echo "  Enter    - View diff"
+  echo "  i        - Ignore file"
+  echo "  a        - Accept file"
+  echo "  ?        - Help menu"
+  echo "  q        - Quit"
+  echo
   echo "Happy coding!"
-  
-  # Apply changes to current session
-  source ~/.bashrc
 }
 
 # Remove function
 remove_codelens() {
   print_banner
-  
+
   echo -e "\033[1;31mUninstalling CodeLens...\033[0m"
-  
-  # Remove the script file
-  if [ -f ~/bin/codelens-script.sh ]; then
-    rm -f ~/bin/codelens-script.sh
-    echo "✓ Removed script file"
-  else
-    echo "! Script file not found"
-  fi
-  
-  # Remove alias from bashrc
-  if grep -q "alias codelens=" ~/.bashrc; then
-    sed -i '/alias codelens=/d' ~/.bashrc
-    echo "✓ Removed alias from ~/.bashrc"
-  else
-    echo "! Alias not found in ~/.bashrc"
-  fi
-  
+  echo
+
+  # Get script directory
+  SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+  # Unlink global package
+  cd "$SCRIPT_DIR"
+  pnpm unlink --global
+
+  echo "✓ Removed global link"
   echo
   echo -e "\033[1;32mUninstallation complete!\033[0m"
   echo
   echo "CodeLens has been removed from your system."
+  echo "You can still run it locally with: node index.js"
   echo
   echo "Thank you for trying CodeLens!"
-  
-  # Apply changes to current session
-  source ~/.bashrc
 }
 
 # Version function
@@ -159,7 +258,7 @@ show_help() {
 
 # Main
 case "$1" in
-  install)
+  install|"")
     install_codelens
     ;;
   remove)
@@ -172,22 +271,10 @@ case "$1" in
     show_version
     ;;
   *)
-    # No args or unknown args - run the monitoring
-    if command -v watch >/dev/null 2>&1; then
-      watch --color -n 0.5 "\"$0\""
-    else
-      # Fall back to single run if watch isn't available
-      print_banner
-      echo "Running one-time file scan (install 'watch' for real-time updates)"
-      echo
-      monitor_files
-    fi
+    echo "Unknown command: $1"
+    echo "Use --help for usage information"
+    exit 1
     ;;
 esac
-
-# If being sourced during installation, don't run the monitor
-if [[ "${BASH_SOURCE[0]}" == "${0}" && "$1" == "" && "$0" != "$HOME/bin/codelens-script.sh" ]]; then
-  monitor_files
-fi
 
 exit 0
