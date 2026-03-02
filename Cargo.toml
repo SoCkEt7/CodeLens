@@ -1,0 +1,19 @@
+[package]
+name = "codelens"
+version = "0.1.0"
+edition = "2024"
+description = "Real-time file monitoring with beautiful diff visualization in the terminal."
+repository = "https://github.com/SoCkEt7/CodeLens"
+license = "MIT"
+keywords = ["cli", "tui", "monitoring", "diff", "developer-tools"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+anyhow = "1.0.102"
+chrono = "0.4.44"
+crossterm = "0.29.0"
+ignore = "0.4.25"
+notify = "8.2.0"
+ratatui = "0.30.0"
+similar = "2.7.0"
+tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros", "sync", "fs", "time"] }
