@@ -191,12 +191,18 @@ fn draw_logs(f: &mut Frame, app: &App, area: Rect) {
 
 fn draw_footer(f: &mut Frame, area: Rect) {
     let p = Paragraph::new(Line::from(vec![
-        Span::raw("Écrit en "),
+        Span::raw("© 2026 "),
+        Span::styled("CodeLens", Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan)),
+        Span::raw(" | Écrit en "),
         Span::styled("Rust", Style::default().add_modifier(Modifier::BOLD).fg(Color::Red)),
         Span::raw(" par "),
         Span::styled("Antonin Nivoche", Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan)),
         Span::raw(" | "),
-        Span::styled("https://www.linkedin.com/in/antonin-nvh/", Style::default().fg(Color::Blue)),
+        Span::styled("antonin.niv@gmail.com", Style::default().fg(Color::Blue)),
+        Span::raw(" | "),
+        Span::styled("github.com/socket7/codelens", Style::default().fg(Color::Blue)),
+        Span::raw(" | "),
+        Span::styled("https://olive.click", Style::default().fg(Color::Blue)),
     ]))
     .alignment(ratatui::layout::Alignment::Center);
     f.render_widget(p, area);

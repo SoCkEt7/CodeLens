@@ -5,7 +5,7 @@
 
 CodeLens is a high-performance, real-time file monitoring tool with a beautiful terminal user interface (TUI). Designed to help developers track file changes, visualize diffs, and view codebase activity without leaving the terminal.
 
-Created with ❤️ by **Antonin Nivoche** ([LinkedIn](https://www.linkedin.com/in/antonin-nvh/)).
+Created with ❤️ by **Antonin Nivoche** ([Website](https://olive.click) | [Email](mailto:antonin.niv@gmail.com) | [LinkedIn](https://www.linkedin.com/in/antonin-nvh/)).
 
 Written entirely in **Rust**, it offers zero-lag async file watching, smart filtering, and rich colored terminal rendering.
 
@@ -24,8 +24,8 @@ To install `codelens`, you need to have [Rust and Cargo](https://rustup.rs/) ins
 
 ### From Source
 ```bash
-git clone https://github.com/SoCkEt7/CodeLens.git
-cd CodeLens
+git clone https://github.com/socket7/codelens.git
+cd codelens
 cargo install --path .
 ```
 
@@ -62,3 +62,10 @@ CodeLens uses a clean, async-driven architecture optimized for low-latency termi
 ## 📄 License
 
 This project is open-source and available under the **MIT License**. See the `LICENSE` file for more details.
+
+---
+
+**CodeLens** - A beautiful terminal UI for real-time file monitoring
+**CodeLens** - Une interface terminal élégante pour la surveillance de fichiers en temps réel
+
+© 2026 Antonin Nivoche. All rights reserved. | Tous droits réservés.
