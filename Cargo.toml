@@ -2,8 +2,9 @@
 name = "codelens"
 version = "0.1.5"
 edition = "2024"
-description = "Real-time file monitoring with beautiful diff visualization in the terminal."
-repository = "https://github.com/SoCkEt7/CodeLens"
+authors = ["Antonin Nivoche <antonin.niv@gmail.com>"]
+description = "Real-time file monitoring with beautiful diff visualization (Rust implementation)"
+repository = "https://github.com/socket7/codelens"
 license = "MIT"
 keywords = ["cli", "tui", "monitoring", "diff", "developer-tools"]
 categories = ["command-line-utilities", "development-tools"]

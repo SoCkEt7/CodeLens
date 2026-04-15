@@ -290,7 +290,11 @@ fn draw_footer(f: &mut Frame, area: Rect) {
         Span::styled("?", Style::default().fg(Color::Yellow)),
         Span::raw(" Help │ "),
         Span::styled("Q", Style::default().fg(Color::Yellow)),
-        Span::raw(" Quit"),
+        Span::raw(" Quit │ "),
+        Span::raw("© 2026 "),
+        Span::styled("Antonin Nivoche", Style::default().fg(Color::Cyan)),
+        Span::raw(" | "),
+        Span::styled("olive.click", Style::default().fg(Color::Blue)),
     ]))
     .alignment(ratatui::layout::Alignment::Left)
     .style(Style::default().fg(Color::DarkGray));
