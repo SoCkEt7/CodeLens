@@ -14,7 +14,10 @@ Written entirely in **Rust**, it offers zero-lag async file watching, smart filt
 - **Real-Time Monitoring**: Instantly detects and reacts to file modifications, creations, and deletions using `notify`.
 - **Beautiful TUI**: Powered by `ratatui` and `crossterm` for a sleek, responsive, and robust grid-based layout.
 - **Rich Diff Visualization**: Computes additions and deletions under the hood using `similar` and displays clear, colored inline diffs.
-- **Smart Filtering**: Automatically ignores common build artifacts (e.g., `node_modules`, `target/`, `.git/`) and focuses only on source code files.
+- **Smart Filtering**: Automatically ignores common build artifacts (e.g., `node_modules`, `target/`, `.git/`) and respects your `.gitignore` rules.
+- **Initial Scan**: Automatically scans your project on startup to show existing files and their current state.
+- **Binary Support**: Detects non-text files and shows them with a `[BIN]` tag.
+- **Atomic Save Support**: Correctly handles editors that save files via temporary renames.
 - **Interactive Controls**: Navigate through changes, ignore specific files, or clear your history all via keyboard shortcuts.
 - **Activity Log**: Maintains a scrolling chronological log of all application and filesystem events.
 
@@ -34,10 +37,19 @@ cargo install --path .
 Run `codelens` in the root of the project you want to monitor:
 
 ```bash
-codelens
+codelens [OPTIONS] [PATH]
 ```
 
 The application will immediately start monitoring the current directory (and its subdirectories).
+
+### Options
+
+| Flag | Description |
+| --- | --- |
+| `--all` | Track all files (disables node_modules, .git, and .gitignore filters) |
+| `--no-ignore` | Disable .gitignore filtering |
+| `--max-size <BYTES>` | Set maximum file size in bytes (default: 1MB) |
+| `--help` | Display help message |
 
 ### Keyboard Shortcuts
 

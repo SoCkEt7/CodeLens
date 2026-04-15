@@ -13,9 +13,58 @@ use std::{io, time::Duration};
 use tokio::sync::mpsc;
 
 use crate::app::{App, Event};
+use crate::watcher::WatcherConfig;
+use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Basic CLI argument parsing
+    let args: Vec<String> = std::env::args().collect();
+    let mut all = false;
+    let mut no_ignore = false;
+    let mut max_size = 1_024 * 1_024; // 1MB default
+    let mut path = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--all" => all = true,
+            "--no-ignore" => no_ignore = true,
+            "--max-size" => {
+                if i + 1 < args.len() {
+                    if let Ok(size) = args[i+1].parse::<u64>() {
+                        max_size = size;
+                        i += 1;
+                    }
+                }
+            }
+            "--help" | "-h" => {
+                println!("CodeLens v{}", env!("CARGO_PKG_VERSION"));
+                println!("Real-time file monitoring with beautiful diff visualization.");
+                println!("\nUsage: codelens [OPTIONS] [PATH]");
+                println!("\nOptions:");
+                println!("  --all           Track all files (disables node_modules, .git, and .gitignore filters)");
+                println!("  --no-ignore     Disable .gitignore filtering");
+                println!("  --max-size <B>  Set maximum file size in bytes (default: 1MB)");
+                println!("  --help, -h      Display this help message");
+                return Ok(());
+            }
+            _ => {
+                if !args[i].starts_with('-') {
+                    path = PathBuf::from(&args[i]);
+                }
+            }
+        }
+        i += 1;
+    }
+
+    let config = WatcherConfig {
+        root_path: path,
+        all,
+        no_ignore,
+        max_size,
+    };
+
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -26,14 +75,17 @@ async fn main() -> Result<()> {
     // Create app state
     let mut app = App::new();
     app.add_log("codelens started".to_string());
+    if all { app.add_log("Mode: --all (tracking everything)".to_string()); }
+    if no_ignore && !all { app.add_log("Mode: --no-ignore".to_string()); }
     
     // Setup channels
     let (tx, mut rx) = mpsc::channel(100);
 
     // Spawn watcher
     let watcher_tx = tx.clone();
+    let watcher_config = config.clone();
     tokio::spawn(async move {
-        if let Err(e) = watcher::run_watcher(watcher_tx.clone()).await {
+        if let Err(e) = watcher::run_watcher(watcher_tx.clone(), watcher_config).await {
             let _ = watcher_tx.send(Event::Error(format!("Watcher error: {}", e))).await;
         }
     });
@@ -55,6 +107,12 @@ async fn main() -> Result<()> {
                         }
                         KeyCode::Down | KeyCode::Char('j') => {
                             let _ = event_tx.blocking_send(Event::Log("select_next".to_string()));
+                        }
+                        KeyCode::PageUp => {
+                            let _ = event_tx.blocking_send(Event::Log("scroll_up".to_string()));
+                        }
+                        KeyCode::PageDown => {
+                            let _ = event_tx.blocking_send(Event::Log("scroll_down".to_string()));
                         }
                         KeyCode::Char('i') => {
                             let _ = event_tx.blocking_send(Event::Log("ignore_selected".to_string()));
@@ -107,6 +165,8 @@ async fn main() -> Result<()> {
                         "select_next" => app.select_next(),
                         "ignore_selected" => app.ignore_selected(),
                         "clear_all" => app.clear_all(),
+                        "scroll_up" => app.scroll_up(),
+                        "scroll_down" => app.scroll_down(),
                         "toggle_help" => app.help_visible = !app.help_visible,
                         "quit" => {
                             app.should_quit = true;

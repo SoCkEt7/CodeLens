@@ -8,6 +8,7 @@ pub struct FileModification {
     pub added: usize,
     pub deleted: usize,
     pub diff: String,
+    pub is_binary: bool,
 }
 
 pub struct AppStats {
@@ -26,6 +27,7 @@ pub enum Event {
 pub struct App {
     pub modifications: VecDeque<FileModification>,
     pub selected_index: usize,
+    pub diff_scroll: u16,
     pub ignore_list: HashSet<String>,
     pub logs: VecDeque<String>,
     pub help_visible: bool,
@@ -38,6 +40,7 @@ impl App {
         App {
             modifications: VecDeque::new(),
             selected_index: 0,
+            diff_scroll: 0,
             ignore_list: HashSet::new(),
             logs: VecDeque::new(),
             help_visible: false,
@@ -81,6 +84,7 @@ impl App {
 
         let added = modif.added;
         let deleted = modif.deleted;
+        let is_binary = modif.is_binary;
 
         // Add or update modification
         if let Some(existing) = self.modifications.iter_mut().find(|m| m.path == modif.path) {
@@ -89,6 +93,7 @@ impl App {
             existing.added = added;
             existing.deleted = deleted;
             existing.diff = std::mem::take(&mut modif.diff);
+            existing.is_binary = is_binary;
             
             // Move to front
             let path_clone = modif.path.clone();
@@ -109,12 +114,14 @@ impl App {
         let visible_count = self.modifications.iter().filter(|m| !self.ignore_list.contains(&m.path)).count();
         if visible_count > 0 && self.selected_index < visible_count - 1 {
             self.selected_index += 1;
+            self.diff_scroll = 0;
         }
     }
 
     pub fn select_previous(&mut self) {
         if self.selected_index > 0 {
             self.selected_index -= 1;
+            self.diff_scroll = 0;
         }
     }
 
@@ -138,6 +145,15 @@ impl App {
         self.modifications.clear();
         self.ignore_list.clear();
         self.selected_index = 0;
+        self.diff_scroll = 0;
         self.add_log("Cleared all changes".to_string());
+    }
+
+    pub fn scroll_up(&mut self) {
+        self.diff_scroll = self.diff_scroll.saturating_sub(1);
+    }
+
+    pub fn scroll_down(&mut self) {
+        self.diff_scroll = self.diff_scroll.saturating_add(1);
     }
 }

@@ -42,6 +42,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 
 struct FileType {
     label: &'static str,
+    icon: &'static str,
     color: Color,
 }
 
@@ -52,17 +53,17 @@ fn get_file_type(path_str: &str) -> FileType {
         .unwrap_or("");
 
     match ext {
-        "js" | "jsx" => FileType { label: "JS", color: Color::Yellow },
-        "ts" | "tsx" => FileType { label: "TS", color: Color::Blue },
-        "php" => FileType { label: "PHP", color: Color::Magenta },
-        "twig" => FileType { label: "TWIG", color: Color::Green },
-        "css" | "scss" => FileType { label: "CSS", color: Color::Blue },
-        "html" => FileType { label: "HTML", color: Color::Red },
-        "json" | "yaml" | "yml" => FileType { label: "CONF", color: Color::Red },
-        "md" => FileType { label: "MD", color: Color::White },
-        "rs" => FileType { label: "RUST", color: Color::Red },
-        "toml" => FileType { label: "TOML", color: Color::Green },
-        _ => FileType { label: "FILE", color: Color::White },
+        "js" | "jsx" => FileType { label: "JS", icon: "", color: Color::Yellow },
+        "ts" | "tsx" => FileType { label: "TS", icon: "", color: Color::Blue },
+        "php" => FileType { label: "PHP", icon: "", color: Color::Magenta },
+        "twig" => FileType { label: "TWIG", icon: "", color: Color::Green },
+        "css" | "scss" => FileType { label: "CSS", icon: "", color: Color::Blue },
+        "html" => FileType { label: "HTML", icon: "", color: Color::Red },
+        "json" | "yaml" | "yml" => FileType { label: "CONF", icon: "", color: Color::Red },
+        "md" => FileType { label: "MD", icon: "", color: Color::White },
+        "rs" => FileType { label: "RUST", icon: "", color: Color::Red },
+        "toml" => FileType { label: "TOML", icon: "", color: Color::Green },
+        _ => FileType { label: "FILE", icon: "", color: Color::White },
     }
 }
 
@@ -70,19 +71,29 @@ fn draw_title(f: &mut Frame, app: &App, area: Rect) {
     let anim_chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
     let spinner = anim_chars[app.anim_frame % anim_chars.len()];
     
-    let status_text = if app.modifications.is_empty() {
-        format!("{} Waiting", spinner)
+    let status_style = if app.modifications.is_empty() {
+        Style::default().fg(Color::Yellow)
     } else {
-        format!("{} Monitoring", spinner)
+        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
     };
 
-    let title = Paragraph::new(Line::from(vec![
-        Span::styled("codelens", Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan)),
-        Span::raw(" - Real-time File Monitoring "),
-        Span::styled(status_text, Style::default().fg(if app.modifications.is_empty() { Color::Yellow } else { Color::Green })),
-    ]))
-    .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)))
-    .alignment(ratatui::layout::Alignment::Center);
+    let status_text = if app.modifications.is_empty() {
+        format!("{}  WAITING FOR CHANGES", spinner)
+    } else {
+        format!("{}  MONITORING ACTIVE", spinner)
+    };
+
+    let title_content = Line::from(vec![
+        Span::styled(" ◈ CODELENS ", Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan).bg(Color::Rgb(20, 20, 40))),
+        Span::raw(" │ "),
+        Span::styled(status_text, status_style),
+    ]);
+
+    let title = Paragraph::new(title_content)
+        .block(Block::default()
+            .borders(Borders::BOTTOM)
+            .border_style(Style::default().fg(Color::Rgb(60, 60, 100))))
+        .alignment(ratatui::layout::Alignment::Left);
 
     f.render_widget(title, area);
 }
@@ -93,49 +104,75 @@ fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(25),
-            Constraint::Percentage(25),
-            Constraint::Percentage(25),
-            Constraint::Percentage(25),
+            Constraint::Length(20),
+            Constraint::Length(20),
+            Constraint::Length(20),
+            Constraint::Min(10),
         ])
         .split(area);
 
-    let boxes = vec![
-        (" Modified Files ", format!("{}", stats.modified), Color::Green),
-        (" Lines Added ", format!("+{}", stats.lines_added), Color::Blue),
-        (" Lines Deleted ", format!("-{}", stats.lines_deleted), Color::Red),
-        (" Status ", "● WATCHING".to_string(), Color::Yellow),
+    let items = vec![
+        ("FILES", format!("{}", stats.modified), Color::Cyan),
+        ("ADDED", format!("+{}", stats.lines_added), Color::Green),
+        ("DELETED", format!("-{}", stats.lines_deleted), Color::Red),
     ];
 
-    for (i, (title, content, color)) in boxes.iter().enumerate() {
-        let p = Paragraph::new(content.as_str())
-            .block(Block::default().title(*title).borders(Borders::ALL).border_style(Style::default().fg(*color)))
-            .style(Style::default().fg(*color).add_modifier(Modifier::BOLD))
-            .alignment(ratatui::layout::Alignment::Center);
+    for (i, (label, value, color)) in items.iter().enumerate() {
+        let p = Paragraph::new(Line::from(vec![
+            Span::styled(format!(" {} ", label), Style::default().fg(Color::DarkGray)),
+            Span::styled(value, Style::default().fg(*color).add_modifier(Modifier::BOLD)),
+        ]))
+        .block(Block::default()
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .border_style(Style::default().fg(Color::Rgb(40, 40, 60))));
         f.render_widget(p, chunks[i]);
     }
 }
 
 fn draw_file_list(f: &mut Frame, app: &mut App, area: Rect) {
+    let now = std::time::SystemTime::now();
     let items: Vec<ListItem> = app.modifications.iter().filter(|m| !app.ignore_list.contains(&m.path)).map(|m| {
-        let time = chrono::DateTime::<chrono::Local>::from(m.timestamp).format("%H:%M:%S").to_string();
+        let elapsed = now.duration_since(m.timestamp).unwrap_or(std::time::Duration::from_secs(0));
+        let time_str = if elapsed.as_secs() < 60 {
+            format!("{}s ago", elapsed.as_secs())
+        } else if elapsed.as_secs() < 3600 {
+            format!("{}m ago", elapsed.as_secs() / 60)
+        } else {
+            format!("{}h ago", elapsed.as_secs() / 3600)
+        };
+        
         let ft = get_file_type(&m.path);
         
-        let content = Line::from(vec![
-            Span::styled("● ", Style::default().fg(Color::Green)),
-            Span::styled(format!("[{}] ", ft.label), Style::default().fg(ft.color)),
-            Span::raw(format!("{} ", time)),
-            Span::styled(format!("+{} ", m.added), Style::default().fg(Color::Blue)),
-            Span::styled(format!("-{} ", m.deleted), Style::default().fg(Color::Red)),
-            Span::raw(&m.path),
-        ]);
+        let mut line_spans = vec![
+            Span::styled(format!(" {} ", ft.icon), Style::default().fg(ft.color)),
+        ];
+
+        if m.is_binary {
+            line_spans.push(Span::styled("BIN    ", Style::default().fg(Color::Magenta)));
+        } else {
+            line_spans.push(Span::styled(format!("{:<6} ", ft.label), Style::default().fg(Color::DarkGray)));
+        }
+
+        line_spans.push(Span::styled(format!("{:<8} ", time_str), Style::default().fg(Color::DarkGray)));
+        line_spans.push(Span::styled(format!("+{} ", m.added), Style::default().fg(Color::Green)));
+        line_spans.push(Span::styled(format!("-{} ", m.deleted), Style::default().fg(Color::Red)));
+        line_spans.push(Span::raw(&m.path));
+
+        let content = Line::from(line_spans);
         ListItem::new(content)
     }).collect();
 
     let list = List::new(items)
-        .block(Block::default().title(" Recent Changes (↑↓ Navigate, I: Ignore, C: Clear) ").borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)))
-        .highlight_style(Style::default().bg(Color::Blue).fg(Color::White).add_modifier(Modifier::BOLD))
-        .highlight_symbol(">> ");
+        .block(Block::default()
+            .title(Span::styled(" RECENT CHANGES ", Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan)))
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .border_style(Style::default().fg(Color::Rgb(60, 60, 100))))
+        .highlight_style(Style::default()
+            .bg(Color::Rgb(30, 30, 60))
+            .add_modifier(Modifier::BOLD))
+        .highlight_symbol(" ❱ ");
 
     let mut state = ListState::default();
     state.select(Some(app.selected_index));
@@ -149,33 +186,76 @@ fn draw_diff_view(f: &mut Frame, app: &App, area: Rect) {
     let mut text = Text::default();
     
     if visible_mods.is_empty() {
-        text.lines.push(Line::from("No changes to display"));
+        text.lines.push(Line::from(vec![Span::styled(" No active changes detected. ", Style::default().fg(Color::DarkGray))]));
     } else if let Some(m) = visible_mods.get(app.selected_index) {
         let ft = get_file_type(&m.path);
+        let header_style = if m.is_binary { Style::default().fg(Color::Black).bg(Color::Magenta) } else { Style::default().fg(Color::Black).bg(ft.color) };
+        let header_label = if m.is_binary { " BINARY " } else { ft.label };
+        
         text.lines.push(Line::from(vec![
-            Span::styled(format!("[{}] ", ft.label), Style::default().fg(ft.color)),
+            Span::styled(format!(" {} ", header_label), header_style),
+            Span::raw(" "),
             Span::styled(&m.path, Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan))
         ]));
         
         let size_str = if m.size < 1024 { format!("{} B", m.size) } else { format!("{:.2} KB", m.size as f64 / 1024.0) };
-        text.lines.push(Line::from(vec![Span::styled(format!("Size: {}", size_str), Style::default().fg(Color::DarkGray))]));
+        text.lines.push(Line::from(vec![
+            Span::styled(format!(" SIZE: {} ", size_str), Style::default().fg(Color::DarkGray)),
+            Span::styled(format!(" MODIFIED: {} ", chrono::DateTime::<chrono::Local>::from(m.timestamp).format("%H:%M:%S")), Style::default().fg(Color::DarkGray)),
+        ]));
         text.lines.push(Line::from(""));
         
+        let mut line_num = 1;
         for line in m.diff.lines() {
-            if line.starts_with('+') {
-                text.lines.push(Line::from(Span::styled(line, Style::default().fg(Color::Green))));
+            let prefix = if line.starts_with('+') {
+                format!("{:>4} + ", line_num)
             } else if line.starts_with('-') {
-                text.lines.push(Line::from(Span::styled(line, Style::default().fg(Color::Red))));
+                format!("{:>4} - ", line_num)
             } else if line.starts_with("@@") {
-                text.lines.push(Line::from(Span::styled(line, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))));
+                line_num = 1; // reset or handle properly, but for simplicity:
+                format!("     @@ ")
             } else {
-                text.lines.push(Line::from(Span::styled(line, Style::default().fg(Color::DarkGray))));
+                format!("{:>4}   ", line_num)
+            };
+
+            if !line.starts_with('-') && !line.starts_with("@@") {
+                line_num += 1;
             }
+
+            if line.starts_with('+') {
+                text.lines.push(Line::from(vec![
+                    Span::styled(prefix, Style::default().fg(Color::Green)),
+                    Span::styled(&line[1..], Style::default().fg(Color::Green))
+                ]));
+            } else if line.starts_with('-') {
+                text.lines.push(Line::from(vec![
+                    Span::styled(prefix, Style::default().fg(Color::Red)),
+                    Span::styled(&line[1..], Style::default().fg(Color::Red))
+                ]));
+            } else if line.starts_with("@@") {
+                text.lines.push(Line::from(Span::styled(line, Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD))));
+            } else {
+                let content = if line.starts_with(' ') { &line[1..] } else { line };
+                text.lines.push(Line::from(vec![
+                    Span::styled(prefix, Style::default().fg(Color::DarkGray)),
+                    Span::styled(content, Style::default().fg(Color::Gray))
+                ]));
+            }
+        }
+
+        if text.lines.len() <= 3 {
+            text.lines.push(Line::from(""));
+            text.lines.push(Line::from(vec![Span::styled(" (No content changes to display) ", Style::default().fg(Color::DarkGray))]));
         }
     }
 
     let p = Paragraph::new(text)
-        .block(Block::default().title(" Diff Preview ").borders(Borders::ALL).border_style(Style::default().fg(Color::Magenta)))
+        .block(Block::default()
+            .title(Span::styled(" DIFF PREVIEW ", Style::default().add_modifier(Modifier::BOLD).fg(Color::Magenta)))
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .border_style(Style::default().fg(Color::Rgb(60, 60, 100))))
+        .scroll((app.diff_scroll, 0))
         .wrap(Wrap { trim: false });
     
     f.render_widget(p, area);
@@ -184,46 +264,67 @@ fn draw_diff_view(f: &mut Frame, app: &App, area: Rect) {
 fn draw_logs(f: &mut Frame, app: &App, area: Rect) {
     let text: Vec<Line> = app.logs.iter().map(|l| Line::from(l.as_str())).collect();
     let p = Paragraph::new(text)
-        .block(Block::default().title(" Activity Log ").borders(Borders::ALL).border_style(Style::default().fg(Color::Yellow)))
+        .block(Block::default()
+            .title(Span::styled(" ACTIVITY LOG ", Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow)))
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .border_style(Style::default().fg(Color::Rgb(60, 60, 100))))
         .wrap(Wrap { trim: false });
     f.render_widget(p, area);
 }
 
 fn draw_footer(f: &mut Frame, area: Rect) {
     let p = Paragraph::new(Line::from(vec![
-        Span::raw("Écrit en "),
-        Span::styled("Rust", Style::default().add_modifier(Modifier::BOLD).fg(Color::Red)),
-        Span::raw(" par "),
-        Span::styled("Antonin Nivoche", Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan)),
-        Span::raw(" | "),
-        Span::styled("https://www.linkedin.com/in/antonin-nvh/", Style::default().fg(Color::Blue)),
+        Span::styled(" ◈ ", Style::default().fg(Color::Cyan)),
+        Span::styled("CodeLens ", Style::default().add_modifier(Modifier::BOLD)),
+        Span::styled(format!("v{} ", env!("CARGO_PKG_VERSION")), Style::default().fg(Color::DarkGray)),
+        Span::raw("│ "),
+        Span::styled("↑↓", Style::default().fg(Color::Yellow)),
+        Span::raw(" Sel │ "),
+        Span::styled("PgUp/Dn", Style::default().fg(Color::Yellow)),
+        Span::raw(" Scrl │ "),
+        Span::styled("I", Style::default().fg(Color::Yellow)),
+        Span::raw(" Ign │ "),
+        Span::styled("C", Style::default().fg(Color::Yellow)),
+        Span::raw(" Clr │ "),
+        Span::styled("?", Style::default().fg(Color::Yellow)),
+        Span::raw(" Help │ "),
+        Span::styled("Q", Style::default().fg(Color::Yellow)),
+        Span::raw(" Quit"),
     ]))
-    .alignment(ratatui::layout::Alignment::Center);
+    .alignment(ratatui::layout::Alignment::Left)
+    .style(Style::default().fg(Color::DarkGray));
     f.render_widget(p, area);
 }
 
 fn draw_help(f: &mut Frame) {
-    let area = centered_rect(60, 60, f.area());
-    let help_text = "
-Keyboard Shortcuts:
+    let area = centered_rect(60, 65, f.area());
+    let help_content = vec![
+        Line::from(vec![Span::styled(" ⌨  SHORTCUTS ", Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan))]),
+        Line::from(""),
+        Line::from(vec![Span::styled("  ↑ / k      ", Style::default().fg(Color::Yellow)), Span::raw("- Select previous file")]),
+        Line::from(vec![Span::styled("  ↓ / j      ", Style::default().fg(Color::Yellow)), Span::raw("- Select next file")]),
+        Line::from(vec![Span::styled("  PgUp / PgDn", Style::default().fg(Color::Yellow)), Span::raw("- Scroll diff preview")]),
+        Line::from(vec![Span::styled("  i          ", Style::default().fg(Color::Yellow)), Span::raw("- Ignore selected file")]),
+        Line::from(vec![Span::styled("  c          ", Style::default().fg(Color::Yellow)), Span::raw("- Clear history")]),
+        Line::from(vec![Span::styled("  ?          ", Style::default().fg(Color::Yellow)), Span::raw("- Toggle this menu")]),
+        Line::from(vec![Span::styled("  q / Ctrl+C ", Style::default().fg(Color::Yellow)), Span::raw("- Quit")]),
+        Line::from(""),
+        Line::from(vec![Span::styled(" ◈  FEATURES ", Style::default().add_modifier(Modifier::BOLD).fg(Color::Magenta))]),
+        Line::from(""),
+        Line::from("  • Real-time async monitoring"),
+        Line::from("  • Smart .gitignore filtering"),
+        Line::from("  • 1MB file size limit safety"),
+        Line::from("  • Inline diff visualization"),
+    ];
 
-  ↑/k         - Move up in file list
-  ↓/j         - Move down in file list
-  i           - Ignore selected file
-  c           - Clear all changes
-  ?           - Toggle this help
-  q/Ctrl+C    - Quit
-
-Features:
-
-  • Real-time file monitoring
-  • Colorful diff visualization
-  • Smart filtering
-  • Interactive accept/ignore controls
-";
-    let p = Paragraph::new(help_text)
-        .block(Block::default().title(" Help (Press ? again to close) ").borders(Borders::ALL).border_style(Style::default().fg(Color::Green)))
-        .style(Style::default().fg(Color::White).bg(Color::Black));
+    let p = Paragraph::new(help_content)
+        .block(Block::default()
+            .title(Span::styled(" HELP ", Style::default().add_modifier(Modifier::BOLD).fg(Color::Green)))
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Double)
+            .border_style(Style::default().fg(Color::Green)))
+        .style(Style::default().fg(Color::White).bg(Color::Rgb(10, 10, 30)));
     
     f.render_widget(ratatui::widgets::Clear, area); // clear background
     f.render_widget(p, area);

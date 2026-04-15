@@ -1,6 +1,6 @@
 [package]
 name = "codelens"
-version = "0.1.0"
+version = "0.1.5"
 edition = "2024"
 description = "Real-time file monitoring with beautiful diff visualization in the terminal."
 repository = "https://github.com/SoCkEt7/CodeLens"
